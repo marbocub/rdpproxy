@@ -112,6 +112,7 @@ class Pool():
         self.server_port = server_port
         db = sqlite3.connect(self.database)
         db.execute('''create table if not exists pool (server text primary key, weight int, client text, wait_start datetime)''')
+        db.execute('''create table if not exists static (client text primary key, server text)''')
         db.close()
 
     def next(self, client_address):
@@ -132,11 +133,14 @@ class Pool():
         db = sqlite3.connect(self.database)
         cur = db.cursor()
 
-        cur.execute("select server from pool where client=?", (client_address,))
+        cur.execute("select server from static where client=?", (client_address,))
         one = cur.fetchone()
         if one == None:
-            cur.execute("select server from pool where weight<>0 and (client='' or client is null) order by weight desc")
+            cur.execute("select server from pool where client=?", (client_address,))
             one = cur.fetchone()
+            if one == None:
+                cur.execute("select server from pool where weight<>0 and (client='' or client is null) order by weight desc")
+                one = cur.fetchone()
 
         cur.close()
         db.close()
